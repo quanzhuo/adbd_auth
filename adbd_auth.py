@@ -22,14 +22,16 @@ class ADBAuthHandler(socketserver.StreamRequestHandler):
 
         if self.is_in_zzdc(IP):
             self.request.send(b'0');
-            print("Allow", productid, "from", IP)
+            print(datetime.datetime.now(), "Allow", productid, "from", IP)
         else:
             if self.is_productid_allowed(productid):
                 self.request.send(b'0');
-                print("Allow", productid, "It's in productid list, IP:", IP)
+                print(datetime.datetime.now(), "Allow", productid, 
+                      "It's in productid list, IP:", IP)
             else:
                 self.request.send(b'1');
-                print("Deny", productid, "It's not in productid list, IP:", IP)
+                print(datetime.datetime.now(), "Deny", productid, 
+                      "It's not in productid list, IP:", IP)
 
         self.request.close()
 
