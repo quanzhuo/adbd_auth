@@ -3,8 +3,26 @@
 import socketserver
 import re
 import datetime
+import sys
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileModifiedEvent
 
 productids = []
+
+class ProductIdChangeHandler(FileSystemEventHandler):
+
+    "This mothod is executed if productid.txt is changed"
+    def on_modified(self, event):
+        if isinstance(event, FileModifiedEvent):
+            if event.src_path.endswith("productid.txt"):
+                with open("productid.txt") as f:
+                    global productids
+                    del productids[:]
+                    for line in f:
+                        id = line.strip('\n')
+                        productids.append(id)
+                        print(datetime.datetime.now(), "Add", id)
 
 class ADBAuthHandler(socketserver.StreamRequestHandler):
     """
@@ -54,6 +72,11 @@ if __name__ == '__main__':
     with open("productid.txt") as f:
         for productid in f:
             productids.append(productid.strip('\n'))
+
+    event_handler = ProductIdChangeHandler()
+    observer = Observer()
+    observer.schedule(event_handler, ".", recursive=True)
+    observer.start()
 
     addr_port = ('0.0.0.0', 6666)
     with socketserver.ThreadingTCPServer(addr_port, ADBAuthHandler) as server:
