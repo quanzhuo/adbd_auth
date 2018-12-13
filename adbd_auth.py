@@ -63,7 +63,7 @@ class ADBAuthHandler(socketserver.StreamRequestHandler):
             else:
                 self.request.send(b'1')
                 print(datetime.datetime.now(), "Deny", productid, 
-                      "It's not in productid list, IP:", IP)
+                      "It's not in allow.txt, IP:", IP)
 
         self.request.close()
 
