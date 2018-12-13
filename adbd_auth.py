@@ -8,21 +8,30 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import FileModifiedEvent
 
-productids = []
+allowed_devices = []
+denied_devices = []
 
 class ProductIdChangeHandler(FileSystemEventHandler):
 
-    "This mothod is executed if productid.txt is changed"
+    "This mothod is executed if allow.txt/deny.txt is changed"
     def on_modified(self, event):
         if isinstance(event, FileModifiedEvent):
-            if event.src_path.endswith("productid.txt"):
-                with open("productid.txt") as f:
-                    global productids
-                    del productids[:]
+            if event.src_path.endswith("allow.txt"):
+                with open("allow.txt") as f:
+                    global allowed_devices
+                    del allowed_devices[:]
                     for line in f:
                         id = line.strip('\n')
-                        productids.append(id)
-                        print(datetime.datetime.now(), "Add", id)
+                        allowed_devices.append(id)
+                        print(datetime.datetime.now(), "Add", id, "to allow.txt")
+            elif event.src_path.endswith("deny.txt"):
+                with open("deny.txt") as f:
+                    global denied_devices
+                    del denied_devices[:]
+                    for line in f:
+                        id = line.strip('\n')
+                        denied_devices.append(id)
+                        print(datetime.datetime.now(), "Add", id, "to deny.txt")
 
 class ADBAuthHandler(socketserver.StreamRequestHandler):
     """
@@ -38,28 +47,26 @@ class ADBAuthHandler(socketserver.StreamRequestHandler):
         productid = self.request.recv(16).strip().decode()
         IP, _ = self.client_address
 
-        if self.is_in_zzdc(IP):
-            self.request.send(b'0');
+        # if productid is in deny.txt, drop it
+        if productid in denied_devices:
+            self.request.send(b'1')
+            print(datetime.datetime.now(), "Deny", productid, "from", IP,
+                  "It's in deny.txt")
+        elif self.is_in_zzdc(IP):
+            self.request.send(b'0')
             print(datetime.datetime.now(), "Allow", productid, "from", IP)
         else:
-            if self.is_productid_allowed(productid):
-                self.request.send(b'0');
+            if productid in allowed_devices:
+                self.request.send(b'0')
                 print(datetime.datetime.now(), "Allow", productid, 
-                      "It's in productid list, IP:", IP)
+                      "It's in allow.txt, IP:", IP)
             else:
-                self.request.send(b'1');
+                self.request.send(b'1')
                 print(datetime.datetime.now(), "Deny", productid, 
                       "It's not in productid list, IP:", IP)
 
         self.request.close()
 
-    def is_productid_allowed(self, productid):
-        global productids
-        if productid in productids:
-            return True
-        else:
-            return False
-    
     def is_in_zzdc(self, ip):
         "wether the request is from zzdc"
     
@@ -69,9 +76,13 @@ class ADBAuthHandler(socketserver.StreamRequestHandler):
             return False
 
 if __name__ == '__main__':
-    with open("productid.txt") as f:
+    with open("allow.txt") as f:
         for productid in f:
-            productids.append(productid.strip('\n'))
+            allowed_devices.append(productid.strip('\n'))
+
+    with open("deny.txt") as f:
+        for productid in f:
+            denied_devices.append(productid.strip('\n'))
 
     event_handler = ProductIdChangeHandler()
     observer = Observer()
